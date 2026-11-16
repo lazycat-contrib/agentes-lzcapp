@@ -1,0 +1,83 @@
+application:
+  subdomain: agentes
+  multi_instance: false
+  # Agentes 自带账号体系（邮箱+密码注册，首个注册账号即管理员），
+  # 无部署期预置密码，因此不需要免密注入。
+  # 公开根路径，注册/登录页可直接打开。
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://agentes:3000/
+
+services:
+  agentes:
+    # upstream: ghcr.io/agentes-chat/agentes:0.1.2
+    # 镜像模式（delivery.mode=mirror）发布到喵喵商店时，Action 会把此行改写为
+    # ghcr.1ms.run/agentes-chat/agentes:<tag> 并要求 digest 匹配
+    image: ghcr.io/agentes-chat/agentes:0.1.2
+    # 上游镜像 ENTRYPOINT [bun, /app/apps/server/src/main.ts]，无需覆盖 command
+    # 上游以 bun(1000) 运行；/lzcapp/var 由平台以 root 创建，用 root 保证可写
+    user: root
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgres://agentes:{{ stable_secret "pg_agentes" }}@postgres:5432/agentes
+      # 会话签名与模型 API Key 加密密钥的根密钥；更换后已存凭据不可读
+      - AGENTES_SECRET={{ stable_secret "agentes_master" }}
+      # 容器内看不到外部域名；PUBLIC_URL 用于登录回跳、邀请链接和浏览器来源校验
+      - PUBLIC_URL=https://{{.S.AppDomain}}
+      - NODE_ENV=production
+      - FILES_DIR=/data/files
+    healthcheck:
+      # 镜像自带 HEALTHCHECK：bun 内联 fetch，无需 curl/wget
+      test:
+        - CMD
+        - bun
+        - -e
+        - "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    binds:
+      # 上传的文件（FILES_DIR）持久化
+      - /lzcapp/var/files:/data/files
+    mem_limit: 4g
+
+  postgres:
+    # upstream: pgvector/pgvector:0.8.7-pg18（第一个迁移会创建 vector 扩展）
+    image: docker.1ms.run/pgvector/pgvector:0.8.7-pg18
+    environment:
+      - POSTGRES_USER=agentes
+      - POSTGRES_PASSWORD={{ stable_secret "pg_agentes" }}
+      - POSTGRES_DB=agentes
+    healthcheck:
+      # 走 TCP：首次启动 init 阶段只监听 Unix socket，之后会重启一次
+      test:
+        - CMD-SHELL
+        - pg_isready -h 127.0.0.1 -U agentes -d agentes
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    binds:
+      # Postgres 18 镜像数据在 /var/lib/postgresql/18/docker，挂父目录
+      - /lzcapp/var/pgdata:/var/lib/postgresql
+
+usage: |
+  Agentes 是开源、可自托管的团队聊天应用（类 Slack）：人和 AI 智能体在同一个频道、私信里协作。
+
+  【首次使用】
+  1. 打开应用，用邮箱注册——第一个注册的账号自动成为管理员（实例拥有者），之后注册关闭，成员靠邀请加入。
+  2. 按引导创建组织，在「Settings → AI and usage」里添加你要用的模型（Claude、ChatGPT/Codex、Gemini、Grok 等，任选其一即可）。
+  3. 建频道、拉人（邀请）、把智能体加进对话。
+
+  【智能体的"电脑"】
+  智能体执行命令、操作浏览器需要一台"电脑"：在「Settings → Devices → Connect a device」
+  页面复制安装命令，在你自己的电脑/服务器上运行即可接入。应用容器本身不提供该能力（上游设计）。
+
+  【说明】
+  - 没有配置邮件（SMTP）时，邀请链接、验证码会写到应用日志里，可从日志复制。
+  - 数据（文件、数据库）持久化在应用数据目录。
+  - 上游为 AGPL-3.0 开源：https://github.com/agentes-chat/agentes-chat

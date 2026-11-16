@@ -1,0 +1,53 @@
+version: 1
+
+project:
+  root: .
+  build_config: lzc-build.yml
+  package_file: package.yml
+  output: .lazycat-build/agentes.lpk
+  target_arch: amd64
+
+update:
+  strategy: publish
+  allow_downgrade: false
+  version_source:
+    type: image
+    image: agentes
+
+build:
+  toolchains: []
+  run_buildscript: false
+
+images:
+  # 主服务：agentes 应用（ghcr）。上游发 0.x.y SemVer tag，无 v 前缀；排除 latest/edge/sha256-*
+  - id: agentes
+    target: service
+    service: agentes
+    source: ghcr.io/agentes-chat/agentes
+    channel: stable
+    tag_regex: '^[0-9]+\.[0-9]+\.[0-9]+$'
+    delivery:
+      # 喵喵商店镜像模式：经 ghcr.1ms.run 加速直连上游，要求 digest 与上游一致
+      mode: mirror
+      require_digest_match: true
+
+  # 数据库：pgvector Postgres（Docker Hub），经 docker.1ms.run 加速。
+  # 跟随主镜像一同改写（不驱动版本号）。
+  - id: postgres
+    target: service
+    service: postgres
+    source: docker.io/pgvector/pgvector
+    channel: stable
+    tag_regex: '^0\.8\.7-pg18$'
+    delivery:
+      mode: mirror
+      require_digest_match: true
+
+stores:
+  private:
+    enabled: true
+    skip_if_version_exists: true
+    name: Agentes
+    summary: "Agentes 懒猫微服打包：团队聊天 + AI 智能体协作（类 Slack，AGPL-3.0）。"
+  official:
+    enabled: false
