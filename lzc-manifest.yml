@@ -9,13 +9,12 @@ application:
   upstreams:
     - location: /
       backend: http://agentes:3000/
-
 services:
   agentes:
     # upstream: ghcr.io/agentes-chat/agentes:0.1.2
     # 镜像模式（delivery.mode=mirror）发布到喵喵商店时，Action 会把此行改写为
     # ghcr.1ms.run/agentes-chat/agentes:<tag> 并要求 digest 匹配
-    image: ghcr.io/agentes-chat/agentes:0.1.2
+    image: ghcr.1ms.run/agentes-chat/agentes:0.1.2
     # 上游镜像 ENTRYPOINT [bun, /app/apps/server/src/main.ts]，无需覆盖 command
     # 上游以 bun(1000) 运行；/lzcapp/var 由平台以 root 创建，用 root 保证可写
     user: root
@@ -44,7 +43,6 @@ services:
       # 上传的文件（FILES_DIR）持久化
       - /lzcapp/var/files:/data/files
     mem_limit: 4g
-
   postgres:
     # upstream: pgvector/pgvector:0.8.7-pg18（第一个迁移会创建 vector 扩展）
     image: docker.1ms.run/pgvector/pgvector:0.8.7-pg18
@@ -64,7 +62,6 @@ services:
     binds:
       # Postgres 18 镜像数据在 /var/lib/postgresql/18/docker，挂父目录
       - /lzcapp/var/pgdata:/var/lib/postgresql
-
 usage: |
   Agentes 是开源、可自托管的团队聊天应用（类 Slack）：人和 AI 智能体在同一个频道、私信里协作。
 
