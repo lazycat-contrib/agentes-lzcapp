@@ -1,5 +1,5 @@
 package: community.lazycat.app.agentes
-version: 0.1.7
+version: 0.1.8
 name: Agentes
 description: Open-source, self-hosted Slack alternative where your team and AI agents work together in channels and DMs. Agents run on Claude, ChatGPT/Codex, Gemini or Grok, with MCP tools, routines, memory and approvals.
 min_os_version: 1.5.0
